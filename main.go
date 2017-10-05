@@ -22,10 +22,6 @@ const (
 	PullRequest
 )
 
-type GitHubGraphqlRequest struct {
-	Query string `json:"query"`
-}
-
 func main() {
 	var (
 		owner          string
@@ -66,58 +62,6 @@ func (p *Paging) asQuery() string {
 func onError(err error) {
 	log.Fatalf("Error: %s", err)
 	os.Exit(1)
-}
-
-func buildQueryFor(kind Assignable, paging *Paging) string {
-	var pagingQuery string
-	if paging != nil {
-		pagingQuery = paging.asQuery()
-	} else {
-		pagingQuery = ""
-	}
-
-	var connection string
-	if kind == Issue {
-		connection = "issues"
-	} else if kind == PullRequest {
-		connection = "pullRequests"
-	} else {
-		// no-op
-	}
-
-	q := fmt.Sprintf(`
-		%s(first: 100, states: [OPEN] %s) {
-			pageInfo {
-				hasNextPage
-				endCursor
-			}
-			nodes {
-				assignees(first: 10) {
-					nodes {
-						login
-					}
-				}
-			}
-		}
-	`, connection, pagingQuery)
-	return q
-}
-
-func (env *Environment) buildQuery(issuesPaging *Paging, prsPaging *Paging) (*GitHubGraphqlRequest, error) {
-	issuesQuery := buildQueryFor(Issue, issuesPaging)
-	prsQuery := buildQueryFor(PullRequest, prsPaging)
-	qs := fmt.Sprintf(`
-query {
-  repository(owner: "%s", name: "%s") {
-		%s
-		%s
-  }
-}
-	`, env.Owner, env.RepoName, issuesQuery, prsQuery)
-	query := &GitHubGraphqlRequest{
-		Query: qs,
-	}
-	return query, nil
 }
 
 func buildRequestForGraphQL(env *Environment, query *GitHubGraphqlRequest) (*http.Request, error) {
@@ -196,7 +140,7 @@ func (e *Environment) run() {
 	assignedIssues := make(AssignedIssuesStat)
 	for {
 		log.Printf("---> Get #%v ...\n", currentPage)
-		query, err := e.buildQuery(issuesPaging, prsPaging)
+		query, err := BuildQuery(e.Owner, e.RepoName, issuesPaging, prsPaging)
 		if err != nil {
 			onError(err)
 		}
