@@ -68,7 +68,7 @@ func onError(err error) {
 	os.Exit(1)
 }
 
-func (env *Environment) buildQueryFor(kind Assignable, paging *Paging) string {
+func buildQueryFor(kind Assignable, paging *Paging) string {
 	var pagingQuery string
 	if paging != nil {
 		pagingQuery = paging.asQuery()
@@ -104,8 +104,8 @@ func (env *Environment) buildQueryFor(kind Assignable, paging *Paging) string {
 }
 
 func (env *Environment) buildQuery(issuesPaging *Paging, prsPaging *Paging) (*GitHubGraphqlRequest, error) {
-	issuesQuery := env.buildQueryFor(Issue, issuesPaging)
-	prsQuery := env.buildQueryFor(PullRequest, prsPaging)
+	issuesQuery := buildQueryFor(Issue, issuesPaging)
+	prsQuery := buildQueryFor(PullRequest, prsPaging)
 	qs := fmt.Sprintf(`
 query {
   repository(owner: "%s", name: "%s") {
