@@ -17,6 +17,13 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+type Assignable int
+
+const (
+	Issue Assignable = iota
+	PullRequest
+)
+
 type environment struct {
 	GitHubEndpoint string
 	GitHubToken    string
@@ -214,6 +221,43 @@ func (e *environment) reportAssigneesStats(assignedIssues AssignedIssuesStat) er
 	return err
 }
 
+func statsFor(kind Assignable, jsonResult gjson.Result) AssignedIssuesStat {
+	var kindName string
+	if kind == Issue {
+		kindName = "issues"
+	} else if kind == PullRequest {
+		kindName = "pullRequests"
+	} else {
+		// no-op
+	}
+
+	assignedIssuesStat := make(AssignedIssuesStat)
+	got := jsonResult.Get(fmt.Sprintf("data.repository.%s.nodes.#.assignees.nodes", kindName))
+	for _, as := range got.Array() {
+		assignees := as.Array()
+		if len(assignees) == 0 {
+			assignedIssuesStat["_nobody"]++
+		} else {
+			for _, assignee := range assignees {
+				assigneeName := assignee.Get("login").String()
+				assignedIssuesStat[assigneeName]++
+			}
+		}
+	}
+
+	return assignedIssuesStat
+}
+
+func mergeStats(stats []AssignedIssuesStat) AssignedIssuesStat {
+	total := make(AssignedIssuesStat)
+	for _, st := range stats {
+		for name, count := range st {
+			total[name] += count
+		}
+	}
+	return total
+}
+
 func (e *environment) run() {
 	var issuesPaging *Paging
 	var prsPaging *Paging
@@ -234,30 +278,13 @@ func (e *environment) run() {
 			onError(err)
 		}
 		parsed := gjson.ParseBytes(body)
-		got := parsed.Get("data.repository.issues.nodes.#.assignees.nodes")
-		for _, as := range got.Array() {
-			assignees := as.Array()
-			if len(assignees) == 0 {
-				assignedIssues["_nobody"]++
-			} else {
-				for _, assignee := range assignees {
-					assigneeName := assignee.Get("login").String()
-					assignedIssues[assigneeName]++
-				}
-			}
-		}
-
-		for _, as := range parsed.Get("data.repository.pullRequests.nodes.#.assignees.nodes").Array() {
-			assignees := as.Array()
-			if len(assignees) == 0 {
-				assignedIssues["_nobody"]++
-
-				for _, assignee := range assignees {
-					assigneeName := assignee.Get("login").String()
-					assignedIssues[assigneeName]++
-				}
-			}
-		}
+		issuesStats := statsFor(Issue, parsed)
+		prsStats := statsFor(PullRequest, parsed)
+		assignedIssues = mergeStats([]AssignedIssuesStat{
+			assignedIssues,
+			issuesStats,
+			prsStats,
+		})
 
 		issuesPageInfo := parsed.Get("data.repository.issues.pageInfo")
 		prsPageInfo := parsed.Get("data.repository.pullRequests.pageInfo")
