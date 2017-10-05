@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sort"
 	"strings"
 	"time"
 
@@ -25,23 +24,6 @@ const (
 
 type GitHubGraphqlRequest struct {
 	Query string `json:"query"`
-}
-
-type AssignedIssuesStat map[string]int
-
-func (s AssignedIssuesStat) asMetric(prefix string) string {
-	now := time.Now().Unix()
-	buf := ""
-	var keys []string
-	for k := range s {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, name := range keys {
-		count := s[name]
-		buf += fmt.Sprintf("%s.%s %v %v\n", prefix, name, count, now)
-	}
-	return buf
 }
 
 func main() {
