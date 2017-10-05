@@ -28,9 +28,10 @@ type environment struct {
 	GitHubToken    string
 	RepoName       string
 	Owner          string
+	MetricPrefix   string
 }
 
-func NewEnvironment(owner string, repoName string, githubEndpoint string, githubToken string) (*environment, error) {
+func NewEnvironment(owner string, repoName string, githubEndpoint string, githubToken string, metricPrefix string) (*environment, error) {
 	if owner == "" {
 		return nil, fmt.Errorf("owner required")
 	}
@@ -43,11 +44,15 @@ func NewEnvironment(owner string, repoName string, githubEndpoint string, github
 	if githubEndpoint == "" {
 		return nil, fmt.Errorf("githubEndpoint required")
 	}
+	if metricPrefix == "" {
+		return nil, fmt.Errorf("metricPrefix required")
+	}
 	env := &environment{
 		Owner:          owner,
 		RepoName:       repoName,
 		GitHubEndpoint: githubEndpoint,
 		GitHubToken:    githubToken,
+		MetricPrefix:   metricPrefix,
 	}
 	return env, nil
 }
@@ -58,8 +63,7 @@ type GitHubGraphqlRequest struct {
 
 type AssignedIssuesStat map[string]int
 
-func (s AssignedIssuesStat) asMetric() string {
-	prefix := "assigned_tasks_count"
+func (s AssignedIssuesStat) asMetric(prefix string) string {
 	now := time.Now().Unix()
 	buf := ""
 	var keys []string
@@ -80,17 +84,19 @@ func main() {
 		repoName       string
 		githubEndpoint string
 		githubToken    string
+		metricPrefix   string
 	)
 	flag.StringVar(&owner, "owner", "", "repository owner name")
 	flag.StringVar(&repoName, "repo", "", "repository name")
 	flag.StringVar(&githubEndpoint, "github-endpoint", "https://api.github.com", "GitHub GraphQL endpoint")
 	flag.StringVar(&githubToken, "github-token", "", "GitHub API token")
+	flag.StringVar(&metricPrefix, "metric-prefix", "assigned_issues_count", "Prefix name")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s -owner=<repositoryOwner> -repo=<repositoryName> -github-token=<githubApiToken> [-github-endpoint=<githubEndpoint>]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s -owner=<repositoryOwner> -repo=<repositoryName> -github-token=<githubApiToken> [-github-endpoint=<githubEndpoint>] [-metric-prefix=<prefixString>]\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	env, err := NewEnvironment(owner, repoName, githubEndpoint, githubToken)
+	env, err := NewEnvironment(owner, repoName, githubEndpoint, githubToken, metricPrefix)
 	if err != nil {
 		onError(err)
 	}
@@ -275,5 +281,5 @@ func (e *environment) run() {
 		time.Sleep(1 * time.Second)
 	}
 
-	fmt.Fprintf(os.Stdout, assignedIssues.asMetric())
+	fmt.Fprintf(os.Stdout, assignedIssues.asMetric(e.MetricPrefix))
 }
