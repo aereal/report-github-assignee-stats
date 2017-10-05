@@ -106,23 +106,25 @@ func onError(err error) {
 	os.Exit(1)
 }
 
-func (env *environment) buildQuery(issuesPaging *Paging, prsPaging *Paging) (*GitHubGraphqlRequest, error) {
-	var issuesPagingQuery string
-	if issuesPaging != nil {
-		issuesPagingQuery = issuesPaging.asQuery()
+func (env *environment) buildQueryFor(kind Assignable, paging *Paging) string {
+	var pagingQuery string
+	if paging != nil {
+		pagingQuery = paging.asQuery()
 	} else {
-		issuesPagingQuery = ""
+		pagingQuery = ""
 	}
-	var prsPagingQuery string
-	if prsPaging != nil {
-		prsPagingQuery = prsPaging.asQuery()
+
+	var connection string
+	if kind == Issue {
+		connection = "issues"
+	} else if kind == PullRequest {
+		connection = "pullRequests"
 	} else {
-		prsPagingQuery = ""
+		// no-op
 	}
-	qs := fmt.Sprintf(`
-query {
-  repository(owner: "%s", name: "%s") {
-		pullRequests(first: 100, states: [OPEN] %s) {
+
+	q := fmt.Sprintf(`
+		%s(first: 100, states: [OPEN] %s) {
 			pageInfo {
 				hasNextPage
 				endCursor
@@ -135,22 +137,21 @@ query {
 				}
 			}
 		}
-    issues(states: [OPEN], first: 100, orderBy: { field: CREATED_AT, direction: DESC } %s) {
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-      nodes {
-        assignees(first: 10) {
-          nodes {
-            login
-          }
-        }
-      }
-    }
+	`, connection, pagingQuery)
+	return q
+}
+
+func (env *environment) buildQuery(issuesPaging *Paging, prsPaging *Paging) (*GitHubGraphqlRequest, error) {
+	issuesQuery := env.buildQueryFor(Issue, issuesPaging)
+	prsQuery := env.buildQueryFor(PullRequest, prsPaging)
+	qs := fmt.Sprintf(`
+query {
+  repository(owner: "%s", name: "%s") {
+		%s
+		%s
   }
 }
-	`, env.Owner, env.RepoName, prsPagingQuery, issuesPagingQuery)
+	`, env.Owner, env.RepoName, issuesQuery, prsQuery)
 	query := &GitHubGraphqlRequest{
 		Query: qs,
 	}
