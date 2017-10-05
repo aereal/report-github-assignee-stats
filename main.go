@@ -26,20 +26,16 @@ const (
 type environment struct {
 	GitHubEndpoint string
 	GitHubToken    string
-	MackerelApiKey string
 	RepoName       string
 	Owner          string
 }
 
-func NewEnvironment(owner string, repoName string, githubEndpoint string, githubToken string, mackerelApiKey string) (*environment, error) {
+func NewEnvironment(owner string, repoName string, githubEndpoint string, githubToken string) (*environment, error) {
 	if owner == "" {
 		return nil, fmt.Errorf("owner required")
 	}
 	if repoName == "" {
 		return nil, fmt.Errorf("repoName required")
-	}
-	if mackerelApiKey == "" {
-		return nil, fmt.Errorf("mackerelApiKey required")
 	}
 	if githubToken == "" {
 		return nil, fmt.Errorf("githubToken required")
@@ -52,7 +48,6 @@ func NewEnvironment(owner string, repoName string, githubEndpoint string, github
 		RepoName:       repoName,
 		GitHubEndpoint: githubEndpoint,
 		GitHubToken:    githubToken,
-		MackerelApiKey: mackerelApiKey,
 	}
 	return env, nil
 }
@@ -85,19 +80,17 @@ func main() {
 		repoName       string
 		githubEndpoint string
 		githubToken    string
-		mackerelApiKey string
 	)
 	flag.StringVar(&owner, "owner", "", "repository owner name")
 	flag.StringVar(&repoName, "repo", "", "repository name")
 	flag.StringVar(&githubEndpoint, "github-endpoint", "https://api.github.com", "GitHub GraphQL endpoint")
 	flag.StringVar(&githubToken, "github-token", "", "GitHub API token")
-	flag.StringVar(&mackerelApiKey, "mackerel-api-key", "", "Mackerel API key")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s -owner=<repositoryOwner> -repo=<repositoryName> -github-token=<githubApiToken> -mackerel-api-key=<mackerelApiKey> [-github-endpoint=<githubEndpoint>]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s -owner=<repositoryOwner> -repo=<repositoryName> -github-token=<githubApiToken> [-github-endpoint=<githubEndpoint>]\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	env, err := NewEnvironment(owner, repoName, githubEndpoint, githubToken, mackerelApiKey)
+	env, err := NewEnvironment(owner, repoName, githubEndpoint, githubToken)
 	if err != nil {
 		onError(err)
 	}
