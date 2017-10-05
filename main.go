@@ -23,40 +23,6 @@ const (
 	PullRequest
 )
 
-type environment struct {
-	GitHubEndpoint string
-	GitHubToken    string
-	RepoName       string
-	Owner          string
-	MetricPrefix   string
-}
-
-func NewEnvironment(owner string, repoName string, githubEndpoint string, githubToken string, metricPrefix string) (*environment, error) {
-	if owner == "" {
-		return nil, fmt.Errorf("owner required")
-	}
-	if repoName == "" {
-		return nil, fmt.Errorf("repoName required")
-	}
-	if githubToken == "" {
-		return nil, fmt.Errorf("githubToken required")
-	}
-	if githubEndpoint == "" {
-		return nil, fmt.Errorf("githubEndpoint required")
-	}
-	if metricPrefix == "" {
-		return nil, fmt.Errorf("metricPrefix required")
-	}
-	env := &environment{
-		Owner:          owner,
-		RepoName:       repoName,
-		GitHubEndpoint: githubEndpoint,
-		GitHubToken:    githubToken,
-		MetricPrefix:   metricPrefix,
-	}
-	return env, nil
-}
-
 type GitHubGraphqlRequest struct {
 	Query string `json:"query"`
 }
@@ -120,7 +86,7 @@ func onError(err error) {
 	os.Exit(1)
 }
 
-func (env *environment) buildQueryFor(kind Assignable, paging *Paging) string {
+func (env *Environment) buildQueryFor(kind Assignable, paging *Paging) string {
 	var pagingQuery string
 	if paging != nil {
 		pagingQuery = paging.asQuery()
@@ -155,7 +121,7 @@ func (env *environment) buildQueryFor(kind Assignable, paging *Paging) string {
 	return q
 }
 
-func (env *environment) buildQuery(issuesPaging *Paging, prsPaging *Paging) (*GitHubGraphqlRequest, error) {
+func (env *Environment) buildQuery(issuesPaging *Paging, prsPaging *Paging) (*GitHubGraphqlRequest, error) {
 	issuesQuery := env.buildQueryFor(Issue, issuesPaging)
 	prsQuery := env.buildQueryFor(PullRequest, prsPaging)
 	qs := fmt.Sprintf(`
@@ -172,7 +138,7 @@ query {
 	return query, nil
 }
 
-func buildRequestForGraphQL(env *environment, query *GitHubGraphqlRequest) (*http.Request, error) {
+func buildRequestForGraphQL(env *Environment, query *GitHubGraphqlRequest) (*http.Request, error) {
 	reqBody, err := json.Marshal(query)
 	if err != nil {
 		return nil, err
@@ -241,7 +207,7 @@ func mergeStats(stats []AssignedIssuesStat) AssignedIssuesStat {
 	return total
 }
 
-func (e *environment) run() {
+func (e *Environment) run() {
 	var issuesPaging *Paging
 	var prsPaging *Paging
 	currentPage := 1
