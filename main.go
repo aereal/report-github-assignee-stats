@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	mkr "github.com/mackerelio/mackerel-client-go"
 	"github.com/tidwall/gjson"
 )
 
@@ -63,6 +62,22 @@ type GitHubGraphqlRequest struct {
 }
 
 type AssignedIssuesStat map[string]int
+
+func (s AssignedIssuesStat) asMetric() string {
+	prefix := "assigned_tasks_count"
+	now := time.Now().Unix()
+	buf := ""
+	var keys []string
+	for k := range s {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, name := range keys {
+		count := s[name]
+		buf += fmt.Sprintf("%s.%s %v %v\n", prefix, name, count, now)
+	}
+	return buf
+}
 
 func main() {
 	var (
@@ -190,38 +205,6 @@ func request(req *http.Request) ([]byte, error) {
 	return body, nil
 }
 
-func buildAssigneesStats(assignedIssues AssignedIssuesStat) string {
-	buf := ""
-	var keys []string
-	for k := range assignedIssues {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, name := range keys {
-		count := assignedIssues[name]
-		buf += fmt.Sprintf("%s: %v\n", name, count)
-	}
-	return buf
-}
-
-func (e *environment) reportAssigneesStats(assignedIssues AssignedIssuesStat) error {
-	fmt.Fprintf(os.Stdout, buildAssigneesStats(assignedIssues))
-
-	var metricValues []*mkr.MetricValue
-	now := time.Now().Unix()
-	for name, count := range assignedIssues {
-		value := &mkr.MetricValue{
-			Name:  fmt.Sprintf("assigned_tasks_count.%s", name),
-			Value: count,
-			Time:  now,
-		}
-		metricValues = append(metricValues, value)
-	}
-	client := mkr.NewClient(e.MackerelApiKey)
-	err := client.PostServiceMetricValues("Hatena-Blog", metricValues)
-	return err
-}
-
 func statsFor(kind Assignable, jsonResult gjson.Result) AssignedIssuesStat {
 	var kindName string
 	if kind == Issue {
@@ -298,8 +281,6 @@ func (e *environment) run() {
 		currentPage++
 		time.Sleep(1 * time.Second)
 	}
-	err := e.reportAssigneesStats(assignedIssues)
-	if err != nil {
-		onError(err)
-	}
+
+	fmt.Fprintf(os.Stdout, assignedIssues.asMetric())
 }
