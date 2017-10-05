@@ -96,43 +96,6 @@ func request(req *http.Request) ([]byte, error) {
 	return body, nil
 }
 
-func statsFor(kind Assignable, jsonResult gjson.Result) AssignedIssuesStat {
-	var kindName string
-	if kind == Issue {
-		kindName = "issues"
-	} else if kind == PullRequest {
-		kindName = "pullRequests"
-	} else {
-		// no-op
-	}
-
-	assignedIssuesStat := make(AssignedIssuesStat)
-	got := jsonResult.Get(fmt.Sprintf("data.repository.%s.nodes.#.assignees.nodes", kindName))
-	for _, as := range got.Array() {
-		assignees := as.Array()
-		if len(assignees) == 0 {
-			assignedIssuesStat["_nobody"]++
-		} else {
-			for _, assignee := range assignees {
-				assigneeName := assignee.Get("login").String()
-				assignedIssuesStat[assigneeName]++
-			}
-		}
-	}
-
-	return assignedIssuesStat
-}
-
-func mergeStats(stats []AssignedIssuesStat) AssignedIssuesStat {
-	total := make(AssignedIssuesStat)
-	for _, st := range stats {
-		for name, count := range st {
-			total[name] += count
-		}
-	}
-	return total
-}
-
 func (e *Environment) run() {
 	var issuesPaging *Paging
 	var prsPaging *Paging
@@ -153,9 +116,9 @@ func (e *Environment) run() {
 			onError(err)
 		}
 		parsed := gjson.ParseBytes(body)
-		issuesStats := statsFor(Issue, parsed)
-		prsStats := statsFor(PullRequest, parsed)
-		assignedIssues = mergeStats([]AssignedIssuesStat{
+		issuesStats := StatsFor(Issue, parsed)
+		prsStats := StatsFor(PullRequest, parsed)
+		assignedIssues = MergeStats([]AssignedIssuesStat{
 			assignedIssues,
 			issuesStats,
 			prsStats,
