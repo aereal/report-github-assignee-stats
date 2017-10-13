@@ -102,7 +102,6 @@ func (e *Environment) run() {
 	currentPage := 1
 	assignedIssues := make(AssignedIssuesStat)
 	for {
-		log.Printf("---> Get #%v ...\n", currentPage)
 		query, err := BuildQuery(e.Owner, e.RepoName, issuesPaging, prsPaging)
 		if err != nil {
 			onError(err)
@@ -126,7 +125,6 @@ func (e *Environment) run() {
 
 		issuesPageInfo := parsed.Get("data.repository.issues.pageInfo")
 		prsPageInfo := parsed.Get("data.repository.pullRequests.pageInfo")
-		log.Printf("%#v: has next page = %#v; end cursor = %#v\n", issuesPageInfo, issuesPageInfo.Get("hasNextPage").Bool(), issuesPageInfo.Get("endCursor").String())
 		if !issuesPageInfo.Get("hasNextPage").Bool() && !prsPageInfo.Get("hasNextPage").Bool() {
 			break
 		}
